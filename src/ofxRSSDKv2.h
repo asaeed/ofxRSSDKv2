@@ -161,8 +161,8 @@ namespace ofxRSSDK
 		uint16_t				*mRawDepth;
 
 		PXCBlobData	* mBlobData;
-		std::vector<std::vector<PXCPointI32*>> mBlobs;
-		std::vector<std::vector<int>> mBlobContourSizes;
+		vector<vector<PXCPointI32*>> mBlobs;
+		vector<vector<int>> mBlobContourSizes;
 	};
 };
 #endif

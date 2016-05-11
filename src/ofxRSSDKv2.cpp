@@ -441,12 +441,12 @@ namespace ofxRSSDK
 		return mPointCloud;
 	}
 
-	std::vector<std::vector<PXCPointI32*>> RSDevice::getBlobs()
+	vector<vector<PXCPointI32*>> RSDevice::getBlobs()
 	{
 		return mBlobs;
 	}
 
-	std::vector<std::vector<int>> RSDevice::getBlobContourSizes()
+	vector<vector<int>> RSDevice::getBlobContourSizes()
 	{
 		return mBlobContourSizes;
 	}
