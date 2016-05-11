@@ -37,6 +37,9 @@ namespace ofxRSSDK
 		{
 			switch (pSize)
 			{
+			case RGBRes::SM:
+				mRgbSize = ofVec2f(320, 240);
+				break;
 			case RGBRes::VGA:
 				mRgbSize = ofVec2f(640, 480);
 				break;
@@ -223,6 +226,7 @@ namespace ofxRSSDK
 			}
 			if (mShouldGetBlobs)
 			{
+				clearBlobs();
 				updateBlobs();
 			}
 			mSenseMgr->ReleaseFrame();
@@ -239,8 +243,10 @@ namespace ofxRSSDK
 			mSenseMgr->Close();
 			if (mShouldGetBlobs)
 			{
-				if (mBlobTracker)
+				if (mBlobTracker) {
+					clearBlobs();
 					mBlobTracker->Release();
+				}
 			}
 			if (mShouldGetFaces)
 			{
@@ -293,15 +299,17 @@ namespace ofxRSSDK
 			if (mSenseMgr->EnableBlob() >= PXC_STATUS_NO_ERROR)
 			{
 				mBlobTracker = mSenseMgr->QueryBlob();
-				if (mBlobTracker)
-				{
+				if (mBlobTracker) {
 					mBlobData = mBlobTracker->CreateOutput();
+					PXCBlobConfiguration* config = mBlobTracker->CreateActiveConfiguration();
+					config->SetMaxBlobs(4);
+					config->ApplyChanges();
+					config->Release();
 					mShouldGetBlobs = true;
-				}
-				else
-				{
+				} else {
 					mShouldGetBlobs = false;
 				}
+
 				return mShouldGetBlobs;
 			}
 			return false;
@@ -333,60 +341,72 @@ namespace ofxRSSDK
 		worldPoints.resize(depthPoints.size());
 		mCoordinateMapper->ProjectDepthToCamera(depthPoints.size(), &depthPoints[0], &worldPoints[0]);
 
-		for (int i = 0; i < depthPoints.size(); ++i)
+		for (int i = 0; i < depthPoints.size();++i)
 		{
 			PXCPoint3DF32 p = worldPoints[i];
 			mPointCloud.push_back(ofVec3f(p.x, p.y, p.z));
 		}
 	}
+
 	void RSDevice::updateBlobs()
 	{
 		pxcStatus results = PXC_STATUS_NO_ERROR;
 
-
 		// Get extracted blobs
-		mBlobData->Update(); // update to the current blob data
-							 // Iterate over blobs from right to left
+		mBlobData->Update();
 
-		mValidNumOfBlobs = mBlobData->QueryNumberOfBlobs();
-
-		mBlobPoints.resize(mValidNumOfBlobs);
-		mBlobPointsAccualSize.resize(mValidNumOfBlobs);
-		for (int i = 0; i < mValidNumOfBlobs; i++)
+		int numBlobs = mBlobData->QueryNumberOfBlobs();
+		mBlobs.resize(numBlobs); // instead use mBlobs.reserve(4) in setup since never more than 4 blobs
+		mBlobContourSizes.resize(numBlobs);
+		for (int i = 0; i < numBlobs; i++)
 		{
 			PXCBlobData::IBlob * blob = NULL;
 			mBlobData->QueryBlob(i, PXCBlobData::SEGMENTATION_IMAGE_DEPTH, PXCBlobData::ACCESS_ORDER_RIGHT_TO_LEFT, blob);
 
-			// handle extracted blob data
-			pxcI32 nContours = blob->QueryNumberOfContours();
+			int numContours = blob->QueryNumberOfContours();
+			mBlobs[i].resize(numContours);
+			mBlobContourSizes[i].resize(numContours);
 
-			int numberOfContours = blob->QueryNumberOfContours();
-			mBlobPoints[i].resize(numberOfContours);
-			std::vector<int> blobPointsSize = mBlobPointsAccualSize[i];
-			mBlobPointsAccualSize[i].resize(numberOfContours);
-
-			if (nContours>0)
+			if (numContours > 0)
 			{
-				for (int j = 0; j<nContours; ++j)
+				//for (int j = 0; j < numContours; ++j)
+				for (int j = 0; j < 1; j++) // temporary, only first contour
 				{
-					PXCBlobData::IContour* contour;
+					PXCBlobData::IContour * contour;
 					if (blob->QueryContour(j, contour) == pxcStatus::PXC_STATUS_NO_ERROR)
 					{
-						mBlobPointsAccualSize[i].at(j) = 0;
-						int contourSize = contour->QuerySize();
-						mBlobPoints[i].at(j) = 0;
-						if (contourSize>0)
+						mBlobContourSizes[i].at(j) = 0;
+						int numPoints = contour->QuerySize();
+						mBlobs[i].at(j) = 0;
+						if (numPoints > 0)
 						{
-							mBlobPoints[i].at(j) = new PXCPointI32[contourSize];
-							results = contour->QueryPoints(contourSize, mBlobPoints[i].at(j));
+							// this memory is freed in clearBlobs()
+							mBlobs[i].at(j) = new PXCPointI32[numPoints];
+							results = contour->QueryPoints(numPoints, mBlobs[i].at(j));
 							if (results != PXC_STATUS_NO_ERROR) continue;
-							mBlobPointsAccualSize[i].at(j) = contourSize;
+							mBlobContourSizes[i].at(j) = numPoints;
 						}
 					}
 				}
 			}
 		}
+	}
 
+	void RSDevice::clearBlobs()
+	{
+		for (int i = 0; i < mBlobs.size(); i++)
+		{
+			for (int j = 0; j < mBlobs[i].size(); j++)
+			{
+				if (mBlobs[i].at(j) != NULL)
+				{
+					delete[] mBlobs[i].at(j);
+					mBlobs[i].at(j) = NULL;
+				}
+
+			}
+			mBlobs[i].clear();
+		}
 	}
 #pragma endregion
 
@@ -421,20 +441,16 @@ namespace ofxRSSDK
 		return mPointCloud;
 	}
 
-	int RSDevice::getValidNumBlobs()
+	std::vector<std::vector<PXCPointI32*>> RSDevice::getBlobs()
 	{
-		return mValidNumOfBlobs;
+		return mBlobs;
 	}
 
-	std::vector<std::vector<PXCPointI32*>> RSDevice::getBlobPoints()
+	std::vector<std::vector<int>> RSDevice::getBlobContourSizes()
 	{
-		return mBlobPoints;
+		return mBlobContourSizes;
 	}
 
-	std::vector<std::vector<int>> RSDevice::getBlobPointsAccualSize()
-	{
-		return mBlobPointsAccualSize;
-	}
 	//Nomenclature Notes:
 	//	"Space" denotes a 3d coordinate
 	//	"Image" denotes an image space point ((0, width), (0,height), (image depth))

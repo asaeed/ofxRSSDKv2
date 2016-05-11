@@ -13,7 +13,6 @@
 #include "pxcfacemodule.h"
 #include "pxcfaceconfiguration.h"
 
-
 using namespace std;
 
 namespace ofxRSSDK
@@ -32,6 +31,7 @@ namespace ofxRSSDK
 
 	enum RGBRes
 	{
+		SM,
 		VGA,
 		HD720,
 		HD1080
@@ -45,9 +45,9 @@ namespace ofxRSSDK
 
 	enum CloudRes
 	{
-		FULL_RES = 1,
-		HALF_RES = 2,
-		Q_RES = 4
+		FULL_RES=1,
+		HALF_RES=2,
+		Q_RES=4
 	};
 
 	class RSDevice
@@ -61,9 +61,9 @@ namespace ofxRSSDK
 		bool init();
 		bool initRgb(const RGBRes& pSize, const float& pFPS);
 		bool initDepth(const DepthRes& pSize, const float& pFPS, bool pAsColor);
-
+		
 		void enableAlignedImages(bool pState = true, AlignMode pMode = AlignMode::ALIGN_UVS_ONLY) { mShouldAlign = pState; mAlignMode = pMode; }
-		void enablePointCloud(CloudRes pCloudRes, float pMinDepth, float pMaxDepth) { mCloudRes = pCloudRes; mShouldGetPointCloud = true; mPointCloudRange = ofVec2f(pMinDepth, pMaxDepth); }
+		void enablePointCloud(CloudRes pCloudRes, float pMinDepth, float pMaxDepth) { mCloudRes=pCloudRes; mShouldGetPointCloud=true; mPointCloudRange = ofVec2f(pMinDepth,pMaxDepth);}
 		bool enableFaceTracking(bool pUseDepth);
 		bool enableBlobTracking();
 
@@ -79,9 +79,6 @@ namespace ofxRSSDK
 		const ofPixels&	getColorMappedToDepthFrame();
 		const ofPixels&	getDepthMappedToColorFrame();
 		vector<ofVec3f> getPointCloud();
-		int getValidNumBlobs();
-		std::vector<std::vector<PXCPointI32*>> getBlobPoints();
-		std::vector<std::vector<int>> getBlobPointsAccualSize();
 		//Nomenclature Notes:
 		//	"Space" denotes a 3d coordinate
 		//	"Image" denotes an image space point ((0, width), (0,height), (image depth))
@@ -111,13 +108,17 @@ namespace ofxRSSDK
 		const ofVec2f		getColorCoordsFromDepthSpace(float pCameraX, float pCameraY, float pCameraZ);
 		const ofVec2f		getColorCoordsFromDepthSpace(ofPoint pCameraPoint);
 
-		const ofVec2f&	getDepthSize() { return mDepthSize; }
-		const int		getDepthWidth() { return mDepthSize.x; }
+		const ofVec2f&	getDepthSize() { return mDepthSize;  }
+		const int		getDepthWidth() { return mDepthSize.x;  }
 		const int		getDepthHeight() { return mDepthSize.y; }
 
 		const ofVec2f&	getRgbSize() { return mRgbSize; }
 		const int		getRgbWidth() { return mRgbSize.x; }
 		const int		getRgbHeight() { return mRgbSize.y; }
+
+		std::vector<std::vector<PXCPointI32*>> getBlobs();
+		std::vector<std::vector<int>> getBlobContourSizes();
+		void clearBlobs();
 
 	private:
 		void			updatePointCloud();
@@ -125,14 +126,14 @@ namespace ofxRSSDK
 		void			updateBlobs();
 
 		bool			mIsInit,
-			mIsRunning,
-			mHasRgb,
-			mHasDepth,
-			mShouldAlign,
-			mShouldGetDepthAsColor,
-			mShouldGetPointCloud,
-			mShouldGetFaces,
-			mShouldGetBlobs;
+						mIsRunning,
+						mHasRgb,
+						mHasDepth,
+						mShouldAlign,
+						mShouldGetDepthAsColor,
+						mShouldGetPointCloud,
+						mShouldGetFaces,
+						mShouldGetBlobs;
 
 		AlignMode		mAlignMode;
 		CloudRes		mCloudRes;
@@ -159,10 +160,9 @@ namespace ofxRSSDK
 		vector<ofVec3f>			mPointCloud;
 		uint16_t				*mRawDepth;
 
-		PXCBlobData			*mBlobData;
-		int					mValidNumOfBlobs;
-		std::vector<std::vector<PXCPointI32*>> mBlobPoints;
-		std::vector<std::vector<int>> mBlobPointsAccualSize;
+		PXCBlobData	* mBlobData;
+		std::vector<std::vector<PXCPointI32*>> mBlobs;
+		std::vector<std::vector<int>> mBlobContourSizes;
 	};
 };
 #endif
