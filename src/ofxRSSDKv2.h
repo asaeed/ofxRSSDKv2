@@ -68,6 +68,7 @@ namespace ofxRSSDK
 		bool enableBlobTracking();
 
 		void setPointCloudRange(float pMin, float pMax);
+		void setMirrored(bool isMirrored);
 
 		bool start();
 		bool update();
@@ -118,6 +119,7 @@ namespace ofxRSSDK
 
 		std::vector<std::vector<PXCPointI32*>> getBlobs();
 		std::vector<std::vector<int>> getBlobContourSizes();
+		std::vector<PXCImage*> getBlobImages();
 		void clearBlobs();
 
 	private:
@@ -127,6 +129,7 @@ namespace ofxRSSDK
 
 		bool			mIsInit,
 						mIsRunning,
+						mIsMirrored,
 						mHasRgb,
 						mHasDepth,
 						mShouldAlign,
@@ -163,6 +166,7 @@ namespace ofxRSSDK
 		PXCBlobData	* mBlobData;
 		vector<vector<PXCPointI32*>> mBlobs;
 		vector<vector<int>> mBlobContourSizes;
+		vector<PXCImage *> mBlobImages;
 	};
 };
 #endif

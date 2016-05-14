@@ -9,6 +9,7 @@ namespace ofxRSSDK
 	{
 		mIsInit = false;
 		mIsRunning = false;
+		mIsMirrored = false;
 		mHasRgb = false;
 		mHasDepth = false;
 		mShouldAlign = false;
@@ -100,6 +101,16 @@ namespace ofxRSSDK
 		mPointCloudRange = ofVec2f(pMin, pMax);
 	}
 
+	// can set this before or after start - but SDK only allows after init, so if not running, defer
+	void RSDevice::setMirrored(bool isMirrored) {
+		mIsMirrored = isMirrored;
+		if (!mIsRunning) return;
+		if (mIsMirrored)
+			mSenseMgr->QueryCaptureManager()->QueryDevice()->SetMirrorMode(PXCCapture::Device::MirrorMode::MIRROR_MODE_HORIZONTAL);
+		else 
+			mSenseMgr->QueryCaptureManager()->QueryDevice()->SetMirrorMode(PXCCapture::Device::MirrorMode::MIRROR_MODE_DISABLED);
+	}
+
 	bool RSDevice::start()
 	{
 		pxcStatus cStatus = mSenseMgr->Init();
@@ -112,6 +123,7 @@ namespace ofxRSSDK
 				mDepthToColorFrame.allocate(mRgbSize.x, mRgbSize.y, ofPixelFormat::OF_PIXELS_RGBA);
 			}
 			mIsRunning = true;
+			setMirrored(mIsMirrored);
 			return true;
 		}
 		return false;
@@ -191,7 +203,7 @@ namespace ofxRSSDK
 				}
 			}
 
-			if (mHasDepth&&mHasRgb&&mShouldAlign&&mAlignMode == AlignMode::ALIGN_FRAME)
+			if (mHasDepth && mHasRgb && mShouldAlign && mAlignMode == AlignMode::ALIGN_FRAME)
 			{
 				PXCImage *cMappedColor = mCoordinateMapper->CreateColorImageMappedToDepth(mCurrentSample->depth, mCurrentSample->color);
 				PXCImage *cMappedDepth = mCoordinateMapper->CreateDepthImageMappedToColor(mCurrentSample->color, mCurrentSample->depth);
@@ -245,7 +257,7 @@ namespace ofxRSSDK
 			{
 				if (mBlobTracker) {
 					clearBlobs();
-					mBlobTracker->Release();
+					//mBlobTracker->Release(); SDK says don't release this
 				}
 			}
 			if (mShouldGetFaces)
@@ -358,10 +370,15 @@ namespace ofxRSSDK
 		int numBlobs = mBlobData->QueryNumberOfBlobs();
 		mBlobs.resize(numBlobs); // instead use mBlobs.reserve(4) in setup since never more than 4 blobs
 		mBlobContourSizes.resize(numBlobs);
+		mBlobImages.resize(numBlobs);
+
 		for (int i = 0; i < numBlobs; i++)
 		{
 			PXCBlobData::IBlob * blob = NULL;
 			mBlobData->QueryBlob(i, PXCBlobData::SEGMENTATION_IMAGE_DEPTH, PXCBlobData::ACCESS_ORDER_RIGHT_TO_LEFT, blob);
+
+			// not sure if this works but could come in handy
+			blob->QuerySegmentationImage(mBlobImages[i]);
 
 			int numContours = blob->QueryNumberOfContours();
 			mBlobs[i].resize(numContours);
@@ -449,6 +466,11 @@ namespace ofxRSSDK
 	vector<vector<int>> RSDevice::getBlobContourSizes()
 	{
 		return mBlobContourSizes;
+	}
+
+	vector<PXCImage*> RSDevice::getBlobImages()
+	{
+		return mBlobImages;
 	}
 
 	//Nomenclature Notes:
